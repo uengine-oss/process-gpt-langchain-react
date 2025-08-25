@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-react-client"
+version = "0.1.0"
+description = "A ReAct-based client for MCP servers using LangChain"
+authors = [
+    {name = "User", email = "user@example.com"},
+]
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
+    "langchain-mcp-adapters>=0.1.9",
+    "python-dotenv>=1.0.0",
+    "mcp>=1.9.1",
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+mcp-client = "mcp_react_client.main:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+]
