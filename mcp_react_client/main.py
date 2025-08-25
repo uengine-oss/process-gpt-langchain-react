@@ -245,8 +245,10 @@ async def run_react_agent(tools: List, query: str):
     # Load environment variables
     load_dotenv()
     
-    # Set OpenAI API key directly if not in environment
-    openai_api_key = os.getenv("OPENAI_API_KEY") 
+    # Get OpenAI API key from environment
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set. Please set it using: export OPENAI_API_KEY='your-api-key'") 
     
     # Set up the OpenAI model
     model = ChatOpenAI(
