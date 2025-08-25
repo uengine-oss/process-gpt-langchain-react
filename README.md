@@ -2,6 +2,8 @@
 
 **LangChain MCP 어댑터를 사용한 ReAct 기반 Python 인터프리터 클라이언트**
 
+영상: https://youtu.be/PunCR0aQAC0
+
 이 프로젝트는 [LangChain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters)를 활용하여 MCP (Model Context Protocol) 서버와 상호작용하는 ReAct 에이전트를 구현합니다. 자연어 명령을 통해 Python 코드 실행, 파일 관리, 환경 관리 등의 작업을 수행할 수 있습니다.
 
 ## 🌟 주요 기능

@@ -7,6 +7,7 @@ with Python environments through natural language commands.
 
 import asyncio
 import os
+import logging
 from typing import List
 
 from dotenv import load_dotenv
@@ -15,6 +16,32 @@ from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters, stdio_client
 
 from langchain_mcp_adapters.tools import load_mcp_tools
+
+
+def setup_logging(verbose=False):
+    """Set up logging configuration for debugging ReAct agent."""
+    if verbose:
+        # Set up minimal logging - only show errors from other components
+        logging.basicConfig(
+            level=logging.ERROR,
+            format='%(name)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler()],
+            force=True
+        )
+        
+        # Suppress noisy loggers
+        logging.getLogger("openai").setLevel(logging.ERROR)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
+        logging.getLogger("httpcore").setLevel(logging.ERROR)
+        logging.getLogger("urllib3").setLevel(logging.ERROR)
+        logging.getLogger("langchain").setLevel(logging.ERROR)
+        logging.getLogger("langchain_core").setLevel(logging.ERROR)
+        logging.getLogger("langgraph").setLevel(logging.ERROR)
+        logging.getLogger("mcp").setLevel(logging.ERROR)
+        logging.getLogger("langchain_mcp_adapters").setLevel(logging.ERROR)
+    else:
+        # Normal mode - suppress all debug logs
+        logging.basicConfig(level=logging.WARNING, force=True)
 
 
 def show_help():
@@ -72,13 +99,18 @@ def show_tools(tools):
     print("\n" + "=" * 60)
 
 
-async def interactive_mode():
+async def interactive_mode(verbose=False):
     """Run the MCP ReAct client in interactive mode."""
     
     print("🚀 Starting MCP ReAct Client - Interactive Mode")
+    if verbose:
+        print("🔍 Verbose mode enabled - detailed logging active")
     print("=" * 50)
     print("💡 Type your commands and press Enter. Type 'quit', 'exit', or 'q' to stop.")
     print("=" * 50)
+    
+    # Setup logging
+    setup_logging(verbose)
     
     # MCP server parameters from mcp.json configuration
     server_params = StdioServerParameters(
@@ -111,12 +143,14 @@ async def interactive_mode():
                 print("\n💡 Special commands:")
                 print("  • 'help' - Show example commands")
                 print("  • 'tools' - List all available tools")
+                print("  • 'verbose' - Toggle verbose logging on/off")
                 print("  • 'quit', 'exit', 'q' - Exit the program")
                 
                 print("\n" + "=" * 50)
                 print("🎯 Ready for your commands!")
                 
                 # Interactive loop
+                verbose_mode = verbose
                 while True:
                     try:
                         # Get user input
@@ -134,13 +168,19 @@ async def interactive_mode():
                         elif user_input.lower() == 'tools':
                             show_tools(tools)
                             continue
+                        elif user_input.lower() == 'verbose':
+                            verbose_mode = not verbose_mode
+                            setup_logging(verbose_mode)
+                            status = "enabled" if verbose_mode else "disabled"
+                            print(f"🔍 Verbose logging {status}")
+                            continue
                         
                         print("\n" + "-" * 60)
                         print(f"Processing: {user_input}")
                         print("-" * 60)
                         
                         # Run the agent with user input
-                        await run_react_agent(tools, user_input)
+                        await run_react_agent(tools, user_input, verbose=verbose_mode)
                         
                         print("\n" + "=" * 60)
                         
@@ -160,11 +200,16 @@ async def interactive_mode():
         return
 
 
-async def demo_mode():
+async def demo_mode(verbose=False):
     """Run the MCP ReAct client in demo mode with predefined queries."""
     
     print("🚀 Starting MCP ReAct Client - Demo Mode")
+    if verbose:
+        print("🔍 Verbose mode enabled - detailed logging active")
     print("=" * 50)
+    
+    # Setup logging
+    setup_logging(verbose)
     
     # MCP server parameters from mcp.json configuration
     server_params = StdioServerParameters(
@@ -203,7 +248,7 @@ async def demo_mode():
                 # Run each test query within the same session
                 for i, query in enumerate(test_queries, 1):
                     print(f"\n{'='*20} Demo {i} {'='*20}")
-                    await run_react_agent(tools, query)
+                    await run_react_agent(tools, query, verbose=verbose)
                     print("\n" + "="*50)
                     
                     # Add a small delay between queries
@@ -221,25 +266,31 @@ async def main():
     """Main function to run the MCP ReAct client."""
     import sys
     
+    # Parse command line arguments
+    verbose = "--verbose" in sys.argv or "-v" in sys.argv
+    
+    # Remove verbose flags from argv for mode parsing
+    clean_argv = [arg for arg in sys.argv if arg not in ["--verbose", "-v"]]
+    
     # Check command line arguments
-    if len(sys.argv) > 1:
-        mode = sys.argv[1].lower()
+    if len(clean_argv) > 1:
+        mode = clean_argv[1].lower()
         if mode == "demo":
-            await demo_mode()
+            await demo_mode(verbose=verbose)
             return
         elif mode == "interactive":
-            await interactive_mode()
+            await interactive_mode(verbose=verbose)
             return
         else:
             print(f"❌ Unknown mode: {mode}")
-            print("Usage: python -m mcp_react_client.main [interactive|demo]")
+            print("Usage: python -m mcp_react_client.main [interactive|demo] [--verbose|-v]")
             return
     
     # Default to interactive mode
-    await interactive_mode()
+    await interactive_mode(verbose=verbose)
 
 
-async def run_react_agent(tools: List, query: str):
+async def run_react_agent(tools: List, query: str, verbose=False):
     """Run the ReAct agent with the given query."""
     
     # Load environment variables
@@ -263,9 +314,58 @@ async def run_react_agent(tools: List, query: str):
     print(f"\n🤖 Processing query: {query}")
     print("-" * 50)
     
+    if verbose:
+        print("\n🔍 REACT AGENT TOOL TRACE:")
+        print("=" * 50)
+        print(f"🎯 Query: {query}")
+        print(f"🛠️  Available tools: {[tool.name for tool in tools]}")
+        print("=" * 50)
+    
     try:
         # Run the agent
         response = await agent.ainvoke({"messages": [("user", query)]})
+        
+        if verbose:
+            print("\n📋 TOOL CALL SUMMARY:")
+            print("-" * 30)
+            tool_call_count = 0
+            
+            if response and "messages" in response:
+                # Show only tool-related interactions
+                for i, msg in enumerate(response["messages"]):
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        tool_call_count += len(msg.tool_calls)
+                        print(f"\n🤖 Agent Decision #{i//2 + 1}:")
+                        for j, tool_call in enumerate(msg.tool_calls, 1):
+                            tool_name = tool_call.get('function', {}).get('name', tool_call.get('name', 'unknown'))
+                            print(f"  {j}. 🔧 Tool: {tool_name}")
+                            
+                            # Show simplified args
+                            args = tool_call.get('function', {}).get('arguments')
+                            if args and isinstance(args, str):
+                                try:
+                                    import json
+                                    parsed_args = json.loads(args)
+                                    # Show only key parameters
+                                    key_params = {}
+                                    for key, value in parsed_args.items():
+                                        if key in ['file_path', 'code', 'package_name', 'environment']:
+                                            if isinstance(value, str) and len(value) > 50:
+                                                key_params[key] = value[:50] + "..."
+                                            else:
+                                                key_params[key] = value
+                                    if key_params:
+                                        print(f"     📝 Key params: {key_params}")
+                                except:
+                                    pass
+                    
+                    # Show tool results
+                    elif hasattr(msg, 'content') and hasattr(msg, 'role') and getattr(msg, 'role', None) == 'tool':
+                        result_preview = str(msg.content)[:100] + "..." if len(str(msg.content)) > 100 else str(msg.content)
+                        print(f"  ✅ Tool result: {result_preview}")
+                
+                print(f"\n📊 Total tool calls executed: {tool_call_count}")
+            print("-" * 30)
         
         print("\n📋 Agent Response:")
         print("-" * 20)
@@ -282,8 +382,10 @@ async def run_react_agent(tools: List, query: str):
             
     except Exception as e:
         print(f"❌ Error running agent: {e}")
-        import traceback
-        traceback.print_exc()
+        if verbose:
+            import traceback
+            print("\n🔍 FULL ERROR TRACEBACK:")
+            traceback.print_exc()
         return None
     
     return response
