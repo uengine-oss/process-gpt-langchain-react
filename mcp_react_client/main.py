@@ -16,6 +16,59 @@ from langgraph.prebuilt import create_react_agent
 from mcp import ClientSession, StdioServerParameters, stdio_client
 
 from langchain_mcp_adapters.tools import load_mcp_tools
+from langchain_core.tools import tool
+from .image_generator import generate_single_image, generate_comic
+
+
+@tool
+def create_image(prompt: str, filename: str = None, size: str = "1024x1024", quality: str = "standard") -> str:
+    """
+    Create an image using OpenAI DALL-E based on a text prompt.
+    
+    Args:
+        prompt: Description of the image to generate
+        filename: Optional filename for the saved image (defaults to auto-generated)
+        size: Image size (1024x1024, 1792x1024, or 1024x1792)
+        quality: Image quality (standard or hd)
+    
+    Returns:
+        Path to the saved image file
+    """
+    try:
+        return generate_single_image(prompt, filename, size, quality)
+    except Exception as e:
+        return f"Error generating image: {str(e)}"
+
+
+@tool
+def create_comic(topic: str) -> str:
+    """
+    Create a 4-panel comic based on a topic using OpenAI DALL-E.
+    
+    Args:
+        topic: Topic or theme for the comic story
+    
+    Returns:
+        Path to the generated comic image file
+    """
+    try:
+        return generate_comic(topic)
+    except Exception as e:
+        return f"Error generating comic: {str(e)}"
+
+
+async def load_all_tools(session):
+    """Load both MCP tools and image generation tools"""
+    # Load MCP tools
+    mcp_tools = await load_mcp_tools(session)
+    
+    # Add image generation tools
+    image_tools = [create_image, create_comic]
+    
+    # Combine all tools
+    all_tools = mcp_tools + image_tools
+    
+    return all_tools
 
 
 def setup_logging(verbose=False):
@@ -75,6 +128,11 @@ def show_help():
             "Optimize a hot-rolling steel process using Bayesian optimization",
             "Create a machine learning model for predictive maintenance",
             "Solve a multi-objective optimization problem with constraints"
+        ]),
+        ("Image Generation", [
+            "Create an image of a sunset over mountains",
+            "Generate a 4-panel comic about artificial intelligence",
+            "Create a beautiful landscape with trees and rivers"
         ])
     ]
     
@@ -132,8 +190,8 @@ async def interactive_mode(verbose=False):
                 # Initialize the connection
                 await session.initialize()
                 
-                # Get tools from the MCP server
-                tools = await load_mcp_tools(session)
+                # Get all tools (MCP + image generation)
+                tools = await load_all_tools(session)
                 
                 print(f"✅ Loaded {len(tools)} tools from MCP server")
                 print("\n📚 Available tools:")
@@ -238,8 +296,8 @@ async def demo_mode(verbose=False):
                 # Initialize the connection
                 await session.initialize()
                 
-                # Get tools from the MCP server
-                tools = await load_mcp_tools(session)
+                # Get all tools (MCP + image generation)
+                tools = await load_all_tools(session)
                 
                 print(f"Loaded {len(tools)} tools from MCP server:")
                 for tool in tools:
