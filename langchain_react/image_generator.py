@@ -1,15 +1,15 @@
 """
-Image Generation Tool for MCP ReAct Client
-Extracted from image-gen project for creating images using OpenAI DALL-E
+Image Generation Tool (복사본)
+원본: mcp_react_client/image_generator.py
+주의: 원본 로직을 변경하지 않고, 이 복사본만 사용합니다.
 """
 
 import os
 import json
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-import glob
 
 from PIL import Image, ImageDraw, ImageFont
 import openai
@@ -19,15 +19,11 @@ class ImageGenerator:
     """이미지 생성 클래스 - OpenAI DALL-E를 사용"""
     
     def __init__(self, api_key: Optional[str] = None):
-        """초기화"""
         self.openai_api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.openai_api_key:
             raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
-            
-        # OpenAI 클라이언트 초기화
         self.client = openai.OpenAI(api_key=self.openai_api_key)
-        
-        # 출력 디렉토리 생성 (OS/환경 변수 기반, 기본은 프로젝트 루트의 outputs/images)
+
         output_dir_env = os.getenv("MCP_OUTPUT_DIR") or os.getenv("PGPT_WORK_DIR")
         if output_dir_env:
             self.output_dir = Path(output_dir_env)
@@ -36,39 +32,7 @@ class ImageGenerator:
             self.output_dir = project_root / "outputs" / "images"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 이미지 정리 설정 (환경변수로 조정 가능)
-        self.max_images = int(os.getenv("MCP_MAX_IMAGES", "10"))  # 최대 보관 이미지 수
-        
-    def cleanup_old_images(self):
-        """오래된 이미지들을 자동으로 정리 (개수 기반)"""
-        try:
-            # PNG, JPG, JPEG 파일들 찾기
-            image_patterns = ["*.png", "*.jpg", "*.jpeg"]
-            all_images = []
-            
-            for pattern in image_patterns:
-                all_images.extend(self.output_dir.glob(pattern))
-            
-            if not all_images:
-                return
-            
-            # 파일 수정 시간 기준으로 정렬 (최신순)
-            all_images.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-            
-            # 개수 제한으로 정리
-            if len(all_images) > self.max_images:
-                for old_file in all_images[self.max_images:]:
-                    try:
-                        old_file.unlink()
-                        print(f"🗑️  오래된 이미지 삭제: {old_file.name}")
-                    except Exception as e:
-                        print(f"⚠️  이미지 삭제 실패: {old_file.name} - {e}")
-                    
-        except Exception as e:
-            print(f"⚠️  이미지 정리 중 오류: {e}")
-        
     def generate_image(self, prompt: str, size: str = "1024x1024", quality: str = "standard") -> str:
-        """DALL-E를 이용하여 이미지 생성"""
         try:
             response = self.client.images.generate(
                 model="dall-e-3",
@@ -77,26 +41,21 @@ class ImageGenerator:
                 quality=quality,
                 n=1
             )
-            
             image_url = response.data[0].url
             return image_url
-            
         except Exception as e:
             raise Exception(f"이미지 생성 오류: {e}")
     
     def download_image(self, image_url: str, filename: str) -> str:
-        """이미지를 다운로드하고 파일로 저장"""
         try:
             response = requests.get(image_url)
             response.raise_for_status()
-            
             filepath = self.output_dir / filename
             with open(filepath, 'wb') as f:
                 f.write(response.content)
             
             # 무조건 512x512로 리사이즈
             try:
-                from PIL import Image
                 img = Image.open(filepath)
                 img_resized = img.resize((512, 512), Image.Resampling.LANCZOS)
                 img_resized.save(filepath, quality=95)
@@ -105,29 +64,19 @@ class ImageGenerator:
                 print(f"리사이즈 중 오류 발생: {e}")
             
             return str(filepath)
-            
         except Exception as e:
             raise Exception(f"이미지 다운로드 오류: {e}")
     
     def generate_and_save_image(self, prompt: str, filename: Optional[str] = None, 
                                size: str = "512x512", quality: str = "standard") -> str:
-        """이미지 생성하고 저장하는 통합 함수"""
-        # 저장 전에 오래된 이미지 정리
-        self.cleanup_old_images()
-        
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"generated_image_{timestamp}.png"
-        
-        # 이미지 생성
         image_url = self.generate_image(prompt, size, quality)
-        
-        # 이미지 다운로드 및 저장
         filepath = self.download_image(image_url, filename)
         
         # 무조건 512x512로 리사이즈
         try:
-            from PIL import Image
             img = Image.open(filepath)
             img_resized = img.resize((512, 512), Image.Resampling.LANCZOS)
             img_resized.save(filepath, quality=95)
@@ -138,7 +87,6 @@ class ImageGenerator:
         return filepath
     
     def create_comic_story(self, topic: str) -> Dict[str, Any]:
-        """주제를 바탕으로 4컷 만화 스토리 생성"""
         prompt = f"""
 주제: {topic}
 
@@ -181,7 +129,6 @@ class ImageGenerator:
 - 대화나 설명은 한국어로 작성
 - 만화답고 재미있는 요소를 포함
 """
-        
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4",
@@ -191,10 +138,7 @@ class ImageGenerator:
                 ],
                 temperature=0.7
             )
-            
             result = response.choices[0].message.content.strip()
-            
-            # JSON 추출 시도
             if "```json" in result:
                 json_start = result.find("```json") + 7
                 json_end = result.find("```", json_start)
@@ -203,99 +147,82 @@ class ImageGenerator:
                 json_start = result.find("{")
                 json_end = result.rfind("}") + 1
                 result = result[json_start:json_end]
-            
             story_data = json.loads(result)
             return story_data
-            
         except json.JSONDecodeError as e:
             raise Exception(f"스토리 JSON 파싱 오류: {e}")
         except Exception as e:
             raise Exception(f"스토리 생성 오류: {e}")
     
     def create_comic_layout(self, story_data: Dict[str, Any], image_paths: List[str]) -> str:
-        """4개의 이미지를 하나의 4컷 만화로 합성"""
         try:
-            # 저장 전에 오래된 이미지 정리
-            self.cleanup_old_images()
-            
-            # 이미지 로드
             images = []
             for path in image_paths:
                 img = Image.open(path)
-                # 정사각형으로 리사이즈
                 img = img.resize((512, 512), Image.Resampling.LANCZOS)
                 images.append(img)
-            
-            # 2x2 레이아웃으로 합성
-            comic_width = 1024 + 60  # 이미지 간격 포함
+            comic_width = 1024 + 60
             comic_height = 1024 + 60
             comic_image = Image.new('RGB', (comic_width, comic_height), 'white')
-            
-            # 이미지 배치 (2x2 그리드)
             positions = [(30, 30), (542, 30), (30, 542), (542, 542)]
-            
             for i, (img, pos) in enumerate(zip(images, positions)):
                 comic_image.paste(img, pos)
-            
-            # 제목 추가
             draw = ImageDraw.Draw(comic_image)
             try:
-                # 기본 폰트 사용
                 title_font = ImageFont.load_default()
             except:
                 title_font = ImageFont.load_default()
-            
             title = story_data.get('comic_title', '4컷 만화')
-            
-            # 제목 위치 계산 (상단 중앙)
             bbox = draw.textbbox((0, 0), title, font=title_font)
             title_width = bbox[2] - bbox[0]
             title_x = (comic_width - title_width) // 2
-            
             draw.text((title_x, 5), title, fill='black', font=title_font)
-            
-            # 저장
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             comic_filename = f"comic_{timestamp}.png"
             comic_path = self.output_dir / comic_filename
             comic_image.save(comic_path)
-            
             return str(comic_path)
-            
         except Exception as e:
             raise Exception(f"만화 레이아웃 생성 오류: {e}")
 
 
 def generate_single_image(prompt: str, filename: Optional[str] = None, 
                          size: str = "512x512", quality: str = "standard") -> str:
-    """단일 이미지 생성 함수"""
     generator = ImageGenerator()
     return generator.generate_and_save_image(prompt, filename, size, quality)
 
 
 def generate_comic(topic: str) -> str:
-    """4컷 만화 생성 함수"""
     generator = ImageGenerator()
-    
-    # 스토리 생성
     story_data = generator.create_comic_story(topic)
-    
-    # 각 컷별 이미지 생성
     image_paths = []
     for panel in story_data['panels']:
         panel_num = panel['panel_number']
         scene_desc = panel['scene_description']
-        
-        # 이미지 생성
         prompt = f"4-panel comic style: {scene_desc}"
         image_url = generator.generate_image(prompt, "512x512")
-        
-        # 이미지 다운로드
         filename = f"panel_{panel_num}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         image_path = generator.download_image(image_url, filename)
         image_paths.append(image_path)
-    
-    # 4컷 만화 레이아웃 생성
     comic_path = generator.create_comic_layout(story_data, image_paths)
-    
     return comic_path
+
+
+def resize_existing_image(image_path: str, new_size: tuple = (512, 512)) -> str:
+    """기존 이미지 파일을 리사이즈하는 함수"""
+    try:
+        img = Image.open(image_path)
+        img_resized = img.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # 원본 파일명에 _resized 추가
+        path_obj = Path(image_path)
+        new_filename = f"{path_obj.stem}_resized{path_obj.suffix}"
+        new_path = path_obj.parent / new_filename
+        
+        img_resized.save(new_path, quality=95)
+        print(f"이미지를 {new_size[0]}x{new_size[1]}로 리사이즈하여 {new_path}에 저장했습니다.")
+        return str(new_path)
+    except Exception as e:
+        raise Exception(f"이미지 리사이즈 오류: {e}")
+
+

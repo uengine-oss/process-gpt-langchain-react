@@ -24,6 +24,7 @@ requires-python = ">=3.10"
 
 [project.scripts]
 mcp-client = "mcp_react_client.main:main"
+pgpt-server = "mcp_react_client.pgpt_server:main"
 
 [tool.uv]
 dev-dependencies = [

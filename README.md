@@ -45,6 +45,15 @@ uv run python -m mcp_react_client.main
 uv run python -m mcp_react_client.main interactive
 ```
 
+## 설치
+`.env` 파일에 환경변수 설정
+uv venv
+uv pip install -r requirements.txt
+source .venv/Scripts/activate
+deactivate
+python -X utf8 main.py > output.log 2>&1
+python main.py
+
 ### 데모 모드
 
 ```bash

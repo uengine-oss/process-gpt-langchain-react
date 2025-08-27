@@ -7,6 +7,8 @@ with Python environments through natural language commands.
 
 import asyncio
 import os
+import sys
+from pathlib import Path
 import logging
 from typing import List
 
@@ -170,17 +172,25 @@ async def interactive_mode(verbose=False):
     # Setup logging
     setup_logging(verbose)
     
-    # MCP server parameters from mcp.json configuration
+    # 작업 디렉토리와 파이썬 경로를 OS에 맞게 계산
+    work_dir = Path(os.path.expanduser("~/temp"))
+    work_dir.mkdir(parents=True, exist_ok=True)
+    python_path = sys.executable  # 현재 실행 중인 파이썬 사용
+
     server_params = StdioServerParameters(
         command="uvx",
         args=[
             "mcp-python-code-interpreter",
             "--dir",
-            "/Users/uengine/temp",
+            str(work_dir),
             "--python-path",
-            "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3"
+            python_path,
         ],
-        env={"MCP_ALLOW_SYSTEM_ACCESS": "0"}
+        env={
+            "MCP_ALLOW_SYSTEM_ACCESS": "0",
+            "PYTHONWARNINGS": os.getenv("PYTHONWARNINGS", "ignore"),
+            "PYTHONIOENCODING": os.getenv("PYTHONIOENCODING", "utf-8"),
+        }
     )
     
     try:
@@ -269,17 +279,23 @@ async def demo_mode(verbose=False):
     # Setup logging
     setup_logging(verbose)
     
-    # MCP server parameters from mcp.json configuration
+    # 작업 디렉토리와 파이썬 경로를 OS에 맞게 계산
+    work_dir = Path(os.path.expanduser("~/temp"))
+    work_dir.mkdir(parents=True, exist_ok=True)
+    python_path = sys.executable
+
     server_params = StdioServerParameters(
         command="uvx",
         args=[
             "mcp-python-code-interpreter",
             "--dir",
-            "/Users/uengine/temp",
+            str(work_dir),
             "--python-path",
-            "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3"
+            python_path,
         ],
-        env={"MCP_ALLOW_SYSTEM_ACCESS": "0"}
+        env={
+            "MCP_ALLOW_SYSTEM_ACCESS": "0"
+        }
     )
     
     # Test queries

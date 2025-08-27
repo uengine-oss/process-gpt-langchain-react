@@ -1,0 +1,10 @@
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langgraph>=0.2.0
+langchain-mcp-adapters>=0.1.9
+python-dotenv>=1.0.0
+mcp>=1.9.1
+openai>=1.40.0
+pillow>=10.4.0
+requests>=2.32.3
+process-gpt-agent-sdk==0.2.6
