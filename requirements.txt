@@ -7,6 +7,6 @@ mcp>=1.9.1
 openai>=1.40.0
 pillow>=10.4.0
 requests>=2.32.3
-process-gpt-agent-sdk==0.2.7
+process-gpt-agent-sdk==0.2.8
 fastapi>=0.109.0
 uvicorn>=0.27.0
