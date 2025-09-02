@@ -9,7 +9,7 @@ from .image_generator import generate_single_image, generate_comic
 @tool
 def create_image(prompt: str, filename: str = None, size: str = "1024x1024", quality: str = "standard") -> str:
     """
-    Create an image using OpenAI DALL-E based on a text prompt.
+    Create an image using OpenAI GPT Image based on a text prompt.
     """
     try:
         return generate_single_image(prompt, filename, size, quality)

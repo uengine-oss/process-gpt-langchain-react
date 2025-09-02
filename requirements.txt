@@ -10,3 +10,4 @@ requests>=2.32.3
 process-gpt-agent-sdk==0.2.8
 fastapi>=0.109.0
 uvicorn>=0.27.0
+supabase>=2.0.0
